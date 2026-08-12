@@ -2,11 +2,14 @@ import { OfflineCompiler } from 'mind-ar/src/image-target/offline-compiler.js';
 import { writeFile } from 'fs/promises';
 import { loadImage } from 'canvas';
 
-const image = await loadImage('webar/target.jpg');
+const colorLogo = await loadImage('webar/target-color.jpg');
+const whiteLogo = await loadImage('webar/target-white-navy.jpg');
+
 const compiler = new OfflineCompiler();
-await compiler.compileImageTargets([image], (percent) => {
-  process.stdout.write(`\rCompiling image target: ${Math.round(percent)}%`);
+await compiler.compileImageTargets([colorLogo, whiteLogo], (percent) => {
+  process.stdout.write(`\rCompiling SEBC logo targets: ${Math.round(percent)}%`);
 });
+
 const buffer = compiler.exportData();
 await writeFile('webar/target.mind', Buffer.from(buffer));
-console.log(`\nWrote webar/target.mind (${buffer.byteLength || buffer.length} bytes)`);
+console.log(`\nWrote dual-target webar/target.mind (${buffer.byteLength || buffer.length} bytes)`);

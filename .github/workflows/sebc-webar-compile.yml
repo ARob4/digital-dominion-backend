@@ -1,11 +1,12 @@
-name: Compile SEBC WebAR Target
+name: Compile SEBC WebAR Targets
 
 on:
   push:
     branches:
       - sebc-webar-test
     paths:
-      - 'webar/base-part-*.b64'
+      - 'webar/target-color.jpg'
+      - 'webar/target-white-navy.jpg'
       - 'webar/compile.mjs'
       - '.github/workflows/sebc-webar-compile.yml'
   workflow_dispatch:
@@ -14,7 +15,7 @@ permissions:
   contents: write
 
 jobs:
-  compile-target:
+  compile-targets:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout test branch
@@ -27,18 +28,17 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Rebuild target image
-        shell: bash
+      - name: Verify target files
         run: |
-          cat webar/base-part-0.b64 webar/base-part-1.b64 | base64 --decode > webar/target.jpg
-          file webar/target.jpg
+          file webar/target-color.jpg webar/target-white-navy.jpg
+          ls -lh webar/target-color.jpg webar/target-white-navy.jpg
 
       - name: Install MindAR compiler
         run: |
           npm init -y
           npm install mind-ar@1.2.5
 
-      - name: Compile image target
+      - name: Compile both image targets
         run: node webar/compile.mjs
 
       - name: Commit compiled target
@@ -46,10 +46,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add webar/target.jpg webar/target.mind
+          git add webar/target.mind
           if git diff --cached --quiet; then
             echo "Compiled target is already current."
           else
-            git commit -m "Compile SEBC WebAR image target [skip ci]"
+            git commit -m "Compile dual SEBC logo targets [skip ci]"
             git push origin sebc-webar-test
           fi
