@@ -33,6 +33,11 @@ jobs:
           file webar/target-color.jpg webar/target-white-navy.jpg
           ls -lh webar/target-color.jpg webar/target-white-navy.jpg
 
+      - name: Install canvas build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
+
       - name: Install MindAR compiler
         run: |
           npm init -y
