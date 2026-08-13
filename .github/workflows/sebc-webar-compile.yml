@@ -2,11 +2,9 @@ name: Compile SEBC WebAR Targets
 
 on:
   push:
-    branches:
-      - sebc-webar-test
+    branches: [sebc-webar-test]
     paths:
-      - 'webar/target-color.jpg'
-      - 'webar/target-white-navy.jpg'
+      - 'webar/placards/**'
       - 'webar/compile.mjs'
       - '.github/workflows/sebc-webar-compile.yml'
   workflow_dispatch:
@@ -18,43 +16,28 @@ jobs:
   compile-targets:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout test branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: sebc-webar-test
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
-
-      - name: Verify target files
-        run: |
-          file webar/target-color.jpg webar/target-white-navy.jpg
-          ls -lh webar/target-color.jpg webar/target-white-navy.jpg
-
-      - name: Install canvas build dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
-
-      - name: Install MindAR compiler
-        run: |
           npm init -y
           npm install mind-ar@1.2.5
-
-      - name: Compile both image targets
+      - name: Build placard targets and UI
         run: node webar/compile.mjs
-
-      - name: Commit compiled target
-        shell: bash
+      - name: Commit generated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add webar/target.mind
+          git add webar/target.mind webar/product.html
           if git diff --cached --quiet; then
-            echo "Compiled target is already current."
+            echo "No generated changes."
           else
-            git commit -m "Compile dual SEBC logo targets [skip ci]"
+            git commit -m "Build SEBC booth placards [skip ci]"
             git push origin sebc-webar-test
           fi
