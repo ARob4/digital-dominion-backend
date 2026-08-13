@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#011e41">
+<title>SEBC Interactive Product Showcase</title>
+<script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+<style>
+:root{
+  --navy:#011e41;--navy2:#052b57;--gold:#e5bb00;--white:#fff;--ink:#111827;
+  --soft:#f5f7fa;--muted:#6b7280;--line:#dce3eb;--green:#19a974;--danger:#b42318;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent!important;font-family:Arial,Helvetica,sans-serif}
+body{color:#fff}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
+a-scene{position:fixed!important;inset:0!important;background:transparent!important}
+.a-canvas{background:transparent!important}
+
+/* Camera HUD */
+.hud{
+  position:fixed;z-index:40;left:0;right:0;top:0;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 22px;
+  background:linear-gradient(180deg,rgba(0,0,0,.78),rgba(0,0,0,.34) 65%,rgba(0,0,0,0));
+  pointer-events:none
+}
+.hud-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.status{
+  display:inline-flex;align-items:center;gap:7px;
+  max-width:74vw;background:rgba(1,30,65,.84);border:1px solid rgba(255,255,255,.32);
+  color:#fff;padding:9px 11px;border-radius:999px;font-size:11px;font-weight:900;letter-spacing:.04em;
+  backdrop-filter:blur(10px)
+}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(229,187,0,.15)}
+.status.found{border-color:var(--gold)}
+.status.found .dot{background:var(--green);box-shadow:0 0 0 4px rgba(25,169,116,.18)}
+.progress{
+  background:rgba(0,0,0,.58);border:1px solid rgba(255,255,255,.24);border-radius:999px;
+  padding:9px 10px;font-size:10px;font-weight:900;white-space:nowrap;backdrop-filter:blur(10px)
+}
+.instructions{margin-top:7px;font-size:11px;line-height:1.35;text-shadow:0 1px 4px #000;max-width:440px}
+.top-actions{position:fixed;z-index:45;top:calc(62px + env(safe-area-inset-top));right:12px;display:flex;gap:7px}
+.icon-btn{
+  width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.32);
+  background:rgba(1,30,65,.72);color:#fff;font-size:18px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)
+}
+.icon-btn .count{
+  position:absolute;margin-top:-28px;margin-left:29px;min-width:19px;height:19px;border-radius:999px;
+  background:var(--gold);color:var(--navy);font-size:10px;display:flex;align-items:center;justify-content:center
+}
+#insightsBtn{display:none}
+.presenter #insightsBtn{display:flex}
+
+/* Scanning guide */
+.scan{
+  position:fixed;z-index:20;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;
+  transition:opacity .2s ease
+}
+.scan.hidden{opacity:0}
+.frame{
+  width:min(78vw,420px);aspect-ratio:720/776;max-height:62vh;position:relative;
+  border:1px solid rgba(255,255,255,.46);border-radius:18px;
+  box-shadow:0 0 0 999px rgba(0,0,0,.10)
+}
+.frame:before,.frame:after,.frame i:before,.frame i:after{
+  content:"";position:absolute;width:42px;height:42px;border-color:var(--gold);border-style:solid
+}
+.frame:before{left:-2px;top:-2px;border-width:4px 0 0 4px;border-radius:18px 0 0 0}
+.frame:after{right:-2px;top:-2px;border-width:4px 4px 0 0;border-radius:0 18px 0 0}
+.frame i:before{left:-2px;bottom:-2px;border-width:0 0 4px 4px;border-radius:0 0 0 18px}
+.frame i:after{right:-2px;bottom:-2px;border-width:0 4px 4px 0;border-radius:0 0 18px 0}
+.scan-label{
+  position:absolute;left:20px;right:20px;top:calc(50% + min(32vh,280px));
+  text-align:center;font-size:11px;font-weight:900;text-shadow:0 1px 4px #000
+}
+
+/* Recognized chip + action dock */
+.product-chip{
+  position:fixed;z-index:45;left:12px;right:12px;bottom:calc(116px + env(safe-area-inset-bottom));
+  display:none;align-items:center;justify-content:space-between;gap:10px;
+  background:rgba(1,30,65,.79);border:1px solid rgba(229,187,0,.72);border-radius:16px;
+  padding:10px 12px;backdrop-filter:blur(12px);box-shadow:0 12px 36px rgba(0,0,0,.18)
+}
+.product-chip.show{display:flex}
+.product-chip .kicker{font-size:9px;font-weight:900;color:var(--gold);letter-spacing:.08em}
+.product-chip strong{display:block;font-size:14px;margin-top:2px}
+.product-chip .mini{font-size:10px;color:rgba(255,255,255,.76);margin-top:2px}
+.dock{
+  position:fixed;z-index:46;left:10px;right:10px;bottom:calc(14px + env(safe-area-inset-bottom));
+  display:none;grid-template-columns:repeat(5,1fr);gap:6px;
+  padding:7px;background:rgba(5,15,29,.62);border:1px solid rgba(255,255,255,.20);
+  border-radius:18px;backdrop-filter:blur(13px)
+}
+.dock.show{display:grid}
+.dock button{
+  border:0;border-radius:12px;background:rgba(1,30,65,.92);color:#fff;
+  min-height:66px;padding:7px 3px;font-size:9px;font-weight:900;line-height:1.15
+}
+.dock button b{display:block;font-size:19px;line-height:1;margin-bottom:5px}
+.dock button.gold{background:var(--gold);color:var(--navy)}
+.dock button.saved{background:var(--green)}
+
+/* Bottom sheets */
+.sheet{
+  position:fixed;z-index:80;left:0;right:0;bottom:0;max-height:82vh;
+  background:rgba(248,250,252,.95);color:var(--ink);border-top:4px solid var(--gold);
+  transform:translateY(104%);transition:transform .22s ease;overflow:auto;
+  padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(18px)
+}
+.sheet.open{transform:translateY(0)}
+.sheet-head{
+  position:sticky;top:0;z-index:2;background:rgba(1,30,65,.98);color:#fff;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 14px 12px
+}
+.sheet-head .eyebrow{font-size:9px;color:var(--gold);font-weight:900;letter-spacing:.09em}
+.sheet-head strong{display:block;font-size:18px;line-height:1.1;margin-top:3px}
+.close{
+  width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.28);
+  color:#fff;background:transparent;font-size:22px
+}
+.sheet-body{padding:14px}
+.hero-copy{font-size:15px;line-height:1.55;margin:0 0 12px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.tag{background:#eaf0f7;color:var(--navy);font-size:10px;font-weight:900;padding:7px 9px;border-radius:999px}
+.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.feature{background:#fff;border:1px solid var(--line);padding:12px;border-radius:12px}
+.feature b{display:block;font-size:11px;color:var(--navy);margin-bottom:5px}
+.feature span{font-size:12px;line-height:1.4;color:#4b5563}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+.primary,.secondary,.danger{
+  min-height:48px;border-radius:12px;padding:11px;font-weight:900;font-size:12px
+}
+.primary{border:0;background:var(--navy);color:#fff}
+.primary.gold{background:var(--gold);color:var(--navy)}
+.secondary{border:1px solid #b8c4d0;background:#fff;color:var(--navy)}
+.danger{border:1px solid #f1b0aa;background:#fff;color:var(--danger)}
+.section-title{font-size:12px;color:var(--navy);margin:16px 0 8px;font-weight:900;letter-spacing:.03em}
+.specs{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.spec-row{display:grid;grid-template-columns:42% 58%;border-top:1px solid var(--line)}
+.spec-row:first-child{border-top:0}
+.spec-row div{padding:10px;font-size:12px}
+.spec-row div:first-child{font-weight:900;color:var(--navy);background:#f6f8fb}
+.hotspot-note{padding:11px 12px;border-left:4px solid var(--gold);background:#fff8d9;font-size:12px;line-height:1.45;margin-bottom:12px}
+.saved-card{background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px;margin-bottom:9px}
+.saved-card strong{display:block;color:var(--navy)}
+.saved-card span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+
+/* Video */
+.video-wrap{position:relative;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden}
+.video-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.video-note{font-size:11px;line-height:1.45;color:var(--muted);margin-top:10px}
+
+/* Form */
+.form-row{margin-bottom:10px}
+.form-row label{display:block;font-size:10px;font-weight:900;color:var(--navy);margin-bottom:5px}
+.form-row input,.form-row textarea{
+  width:100%;border:1px solid #bcc7d3;border-radius:10px;background:#fff;color:#111827;padding:12px;font-size:16px
+}
+.form-row textarea{min-height:88px;resize:vertical}
+.success{
+  display:none;padding:14px;background:#e9f9f2;border:1px solid #a7e4ca;border-radius:12px;color:#0b704c;
+  font-size:13px;font-weight:800;line-height:1.45
+}
+.success.show{display:block}
+
+/* Completion / insight */
+.completion{
+  position:fixed;z-index:95;left:14px;right:14px;top:50%;transform:translateY(-50%) scale(.95);
+  display:none;background:rgba(1,30,65,.95);border:1px solid var(--gold);border-radius:22px;
+  padding:24px;text-align:center;backdrop-filter:blur(18px);box-shadow:0 20px 70px rgba(0,0,0,.35)
+}
+.completion.show{display:block;animation:pop .25s ease forwards}
+@keyframes pop{to{transform:translateY(-50%) scale(1)}}
+.completion .badge{width:74px;height:74px;border-radius:50%;background:var(--gold);color:var(--navy);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:35px}
+.completion h2{margin:0 0 8px;font-size:22px}
+.completion p{font-size:13px;line-height:1.5;color:#dce7f3}
+.completion button{width:100%;margin-top:10px;border:0;border-radius:12px;background:#fff;color:var(--navy);padding:12px;font-weight:900}
+.insight-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.metric{background:#fff;border:1px solid var(--line);padding:12px;border-radius:12px}
+.metric b{display:block;font-size:22px;color:var(--navy)}
+.metric span{font-size:10px;color:var(--muted);font-weight:900}
+.event-log{margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.event-row{padding:9px 10px;border-top:1px solid var(--line);font-size:11px}
+.event-row:first-child{border-top:0}
+
+/* Demo controls */
+.demo-panel{
+  position:fixed;z-index:110;left:10px;right:10px;top:calc(104px + env(safe-area-inset-top));
+  display:none;background:rgba(1,30,65,.94);border:1px solid var(--gold);border-radius:14px;padding:10px
+}
+.demo .demo-panel{display:block}
+.demo-panel .label{font-size:9px;font-weight:900;color:var(--gold);margin-bottom:8px}
+.demo-panel .demo-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.demo-panel button{border:0;border-radius:9px;background:#fff;color:var(--navy);padding:9px 4px;font-size:9px;font-weight:900}
+
+/* Footer */
+.brand-foot{
+  position:fixed;z-index:18;left:0;right:0;bottom:3px;text-align:center;
+  font-size:8px;color:rgba(255,255,255,.55);pointer-events:none;text-shadow:0 1px 3px #000
+}
+@media(max-width:390px){
+  .dock button{min-height:62px;font-size:8px}.dock button b{font-size:17px}
+  .feature-grid,.actions{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="appRoot">
+  <div class="hud">
+    <div class="hud-row">
+      <div id="status" class="status"><span class="dot"></span><span id="statusText">CAMERA STARTING</span></div>
+      <div id="progress" class="progress">0 / 3 PRODUCTS</div>
+    </div>
+    <div id="instructions" class="instructions">Allow camera access, then point at any featured product card.</div>
+  </div>
+
+  <div class="top-actions">
+    <button id="savedBtn" class="icon-btn" aria-label="Saved products">★<span id="savedCount" class="count">0</span></button>
+    <button id="insightsBtn" class="icon-btn" aria-label="Presenter insights">↗</button>
+  </div>
+
+  <div id="scanGuide" class="scan">
+    <div class="frame"><i></i></div>
+    <div class="scan-label">FILL THE FRAME WITH A FEATURED PRODUCT CARD</div>
+  </div>
+
+  <div id="productChip" class="product-chip">
+    <div>
+      <div class="kicker">PRODUCT RECOGNIZED ✓</div>
+      <strong id="chipName">Product</strong>
+      <div id="chipMeta" class="mini">Category</div>
+    </div>
+    <div style="font-size:24px">⌁</div>
+  </div>
+
+  <div id="dock" class="dock">
+    <button data-action="overview"><b>ⓘ</b>INFO</button>
+    <button data-action="video"><b>▶</b>VIDEO</button>
+    <button data-action="specs"><b>≡</b>SPECS</button>
+    <button data-action="save"><b>★</b>SAVE</button>
+    <button class="gold" data-action="lead"><b>✉</b>REQUEST</button>
+  </div>
+
+  <div id="demoPanel" class="demo-panel">
+    <div class="label">PRESENTER FALLBACK • SIMULATE PRODUCT RECOGNITION</div>
+    <div class="demo-buttons">
+      <button data-demo-target="0">WINDOW</button>
+      <button data-demo-target="1">ROOFING</button>
+      <button data-demo-target="2">SMART HOME</button>
+    </div>
+  </div>
+
+  <div id="sheet" class="sheet">
+    <div class="sheet-head">
+      <div><span id="sheetEyebrow" class="eyebrow">INTERACTIVE PRODUCT</span><strong id="sheetTitle">Product</strong></div>
+      <button id="sheetClose" class="close" aria-label="Close">×</button>
+    </div>
+    <div id="sheetBody" class="sheet-body"></div>
+  </div>
+
+  <div id="completion" class="completion">
+    <div class="badge">✓</div>
+    <h2>PRODUCT TOUR COMPLETE</h2>
+    <p>You explored all three featured products. In a live booth, this can unlock a giveaway, badge, sponsor reward or follow-up CTA.</p>
+    <button id="completionSaved">VIEW MY SAVED PRODUCTS</button>
+    <button id="completionClose">KEEP EXPLORING</button>
+  </div>
+
+  <div class="brand-foot">SEBC INTERACTIVE PRODUCT SHOWCASE • Built by AR Creative Marketing</div>
+
+  <a-scene
+    mindar-image="imageTargetSrc: ./target.mind; autoStart: true; uiLoading: yes; uiScanning: no; uiError: yes; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 10;"
+    color-space="sRGB"
+    renderer="colorManagement:true; alpha:true"
+    vr-mode-ui="enabled:false"
+    device-orientation-permission-ui="enabled:false">
+    <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
+
+    <a-entity id="target0" mindar-image-target="targetIndex:0">
+      <a-entity position="0 0 .03">
+        <a-plane position="0 .54 0" width=".92" height=".13" color="#011e41" opacity=".82"></a-plane>
+        <a-text value="COASTALGUARD IMPACT WINDOW" position="0 .54 .01" align="center" color="#ffffff" width="1.35"></a-text>
+        <a-plane position="0 .42 0" width=".52" height=".06" color="#e5bb00" opacity=".96"></a-plane>
+        <a-text value="PRODUCT RECOGNIZED" position="0 .42 .01" align="center" color="#011e41" width=".85"></a-text>
+        <a-plane position="-0.47 .36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position="-0.38 .46 .005" width=".20" height=".02" color="#e5bb00"></a-plane><a-plane position=".47 .36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position=".38 .46 .005" width=".20" height=".02" color="#e5bb00"></a-plane><a-plane position="-0.47 -.36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position="-0.38 -.46 .005" width=".20" height=".02" color="#e5bb00"></a-plane><a-plane position=".47 -.36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position=".38 -.46 .005" width=".20" height=".02" color="#e5bb00"></a-plane>
+        <a-circle position="-.28 .07 .02" radius=".055" color="#011e41" opacity=".88"></a-circle><a-text value="1" position="-.28 .07 .03" align="center" color="#e5bb00" width=".45"></a-text><a-text value="IMPACT GLASS" position="-.28 -.01 .03" align="center" color="#ffffff" width=".58"></a-text>
+        <a-circle position=".28 .05 .02" radius=".055" color="#011e41" opacity=".88"></a-circle><a-text value="2" position=".28 .05 .03" align="center" color="#e5bb00" width=".45"></a-text><a-text value="LOW-E COATING" position=".28 -.03 .03" align="center" color="#ffffff" width=".58"></a-text>
+        <a-circle position="0 -.24 .02" radius=".055" color="#011e41" opacity=".88"></a-circle><a-text value="3" position="0 -.24 .03" align="center" color="#e5bb00" width=".45"></a-text><a-text value="COASTAL RATING" position="0 -.32 .03" align="center" color="#ffffff" width=".62"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="target1" mindar-image-target="targetIndex:1">
+      <a-entity position="0 0 .03">
+        <a-plane position="0 .54 0" width=".92" height=".13" color="#011e41" opacity=".82"></a-plane>
+        <a-text value="STORMSHIELD ROOFING SYSTEM" position="0 .54 .01" align="center" color="#ffffff" width="1.35"></a-text>
+        <a-plane position="0 .42 0" width=".52" height=".06" color="#e5bb00" opacity=".96"></a-plane><a-text value="PRODUCT RECOGNIZED" position="0 .42 .01" align="center" color="#011e41" width=".85"></a-text>
+        <a-plane position="-0.47 .36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position="-0.38 .46 .005" width=".20" height=".02" color="#e5bb00"></a-plane><a-plane position=".47 .36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position=".38 .46 .005" width=".20" height=".02" color="#e5bb00"></a-plane><a-plane position="-0.47 -.36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position="-0.38 -.46 .005" width=".20" height=".02" color="#e5bb00"></a-plane><a-plane position=".47 -.36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position=".38 -.46 .005" width=".20" height=".02" color="#e5bb00"></a-plane>
+        <a-circle position="-.28 .08 .02" radius=".055" color="#011e41" opacity=".88"></a-circle><a-text value="1" position="-.28 .08 .03" align="center" color="#e5bb00" width=".45"></a-text><a-text value="WIND RATING" position="-.28 0 .03" align="center" color="#ffffff" width=".58"></a-text>
+        <a-circle position=".27 .02 .02" radius=".055" color="#011e41" opacity=".88"></a-circle><a-text value="2" position=".27 .02 .03" align="center" color="#e5bb00" width=".45"></a-text><a-text value="ROOF SYSTEM" position=".27 -.06 .03" align="center" color="#ffffff" width=".58"></a-text>
+        <a-circle position="0 -.25 .02" radius=".055" color="#011e41" opacity=".88"></a-circle><a-text value="3" position="0 -.25 .03" align="center" color="#e5bb00" width=".45"></a-text><a-text value="WARRANTY" position="0 -.33 .03" align="center" color="#ffffff" width=".58"></a-text>
+      </a-entity>
+    </a-entity>
+
+    <a-entity id="target2" mindar-image-target="targetIndex:2">
+      <a-entity position="0 0 .03">
+        <a-plane position="0 .54 0" width=".92" height=".13" color="#011e41" opacity=".82"></a-plane>
+        <a-text value="NEXUSHOME SMART CONTROLLER" position="0 .54 .01" align="center" color="#ffffff" width="1.35"></a-text>
+        <a-plane position="0 .42 0" width=".52" height=".06" color="#e5bb00" opacity=".96"></a-plane><a-text value="PRODUCT RECOGNIZED" position="0 .42 .01" align="center" color="#011e41" width=".85"></a-text>
+        <a-plane position="-0.47 .36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position="-0.38 .46 .005" width=".20" height=".02" color="#e5bb00"></a-plane><a-plane position=".47 .36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position=".38 .46 .005" width=".20" height=".02" color="#e5bb00"></a-plane><a-plane position="-0.47 -.36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position="-0.38 -.46 .005" width=".20" height=".02" color="#e5bb00"></a-plane><a-plane position=".47 -.36 .005" width=".02" height=".22" color="#e5bb00"></a-plane><a-plane position=".38 -.46 .005" width=".20" height=".02" color="#e5bb00"></a-plane>
+        <a-circle position="-.30 .07 .02" radius=".055" color="#011e41" opacity=".88"></a-circle><a-text value="1" position="-.30 .07 .03" align="center" color="#e5bb00" width=".45"></a-text><a-text value="ENERGY" position="-.30 -.01 .03" align="center" color="#ffffff" width=".54"></a-text>
+        <a-circle position=".30 .07 .02" radius=".055" color="#011e41" opacity=".88"></a-circle><a-text value="2" position=".30 .07 .03" align="center" color="#e5bb00" width=".45"></a-text><a-text value="SECURITY" position=".30 -.01 .03" align="center" color="#ffffff" width=".54"></a-text>
+        <a-circle position="0 -.24 .02" radius=".055" color="#011e41" opacity=".88"></a-circle><a-text value="3" position="0 -.24 .03" align="center" color="#e5bb00" width=".45"></a-text><a-text value="APP CONTROL" position="0 -.32 .03" align="center" color="#ffffff" width=".58"></a-text>
+      </a-entity>
+    </a-entity>
+  </a-scene>
+</div>
+
+<script>
+const PRODUCTS = [
+  {id:'impact-window', markerIndex:0, brand:'CoastalGuard', name:'Impact Window Series', category:'Windows & Doors',tagline:'Impact-rated opening protection engineered for coastal construction.',description:'A pitch-ready sample product showing how an attendee can point a phone at a product display and instantly receive useful information without covering the real-world view.',tags:['Impact Rated','Low-E Glass','Coastal Use'],features:[['Impact Glass','Demonstrates product-specific callouts anchored directly over the physical display.'],['Low-E Coating','A second hotspot can explain performance, energy or material features.'],['Coastal Rating','Use this space for approvals, testing, warranty or installation requirements.'],['Rep Follow-Up','Save the product or request information without leaving the experience.']],specs:[['Product Type','Impact Window'],['Demo Rating','Coastal / High-Wind'],['Glass','Laminated Impact'],['Energy','Low-E Demonstration'],['Warranty','Sample 10-Year'],['Availability','Dealer / Builder Channel']],video:{type:'vimeo',id:'76979871',label:'Sample embedded video — replace with product Vimeo or YouTube URL'}},
+  {id:'roofing-system', markerIndex:1, brand:'StormShield', name:'High-Wind Roofing System', category:'Roofing',tagline:'A roofing-system demo focused on wind performance, installation and warranty.',description:'This second target proves that the same booth experience can recognize a different product and instantly change the AR information, video, specifications and lead context.',tags:['High Wind','Roof System','Warranty'],features:[['Wind Performance','Show testing footage, ratings or code-compliance information at the point of display.'],['System Components','Explain how underlayment, fasteners, shingles and accessories work together.'],['Install Detail','A video can show installation without requiring a salesperson to repeat the same explanation.'],['Warranty','Surface warranty terms or registration steps beside the product.']],specs:[['Product Type','Roofing System'],['Demo Wind Rating','150+ MPH'],['Assembly','Integrated System'],['Use Case','Residential / Coastal'],['Warranty','Sample Limited Warranty'],['Support','Technical Rep Available']],video:{type:'vimeo',id:'76979871',label:'Sample embedded video — replace with product Vimeo or YouTube URL'}},
+  {id:'smart-controller', markerIndex:2, brand:'NexusHome', name:'Smart Home Controller', category:'Smart Home Technology',tagline:'Connected control for energy, security, lighting and comfort.',description:'The third target demonstrates a technology product and shows how AR can act as an interactive product explainer, save list and lead-generation layer inside a booth.',tags:['Energy','Security','Automation'],features:[['Energy','Explain usage monitoring, schedules and optimization features.'],['Security','Surface compatibility, alerts and access-control information.'],['Lighting','Demonstrate scenes, schedules and whole-home control.'],['Mobile App','Send visitors directly to a demo, signup or rep-request workflow.']],specs:[['Product Type','Smart Controller'],['Connectivity','Wi-Fi / Demo'],['Integrations','HVAC / Lighting / Security'],['Control','Mobile + Wall Interface'],['Install','Professional'],['Support','Builder Program Available']],video:{type:'vimeo',id:'76979871',label:'Sample embedded video — replace with product Vimeo or YouTube URL'}}
+];
+const state={current:null,found:new Set(JSON.parse(localStorage.getItem('sebc_ar_found')||'[]')),saved:new Set(JSON.parse(localStorage.getItem('sebc_ar_saved')||'[]')),events:JSON.parse(localStorage.getItem('sebc_ar_events')||'[]'),completedShown:localStorage.getItem('sebc_ar_completed')==='1'};
+const qs=new URLSearchParams(location.search);if(qs.get('presenter')==='1')document.body.classList.add('presenter');if(qs.get('demo')==='1')document.body.classList.add('demo');
+const $=s=>document.querySelector(s);const status=$('#status'),statusText=$('#statusText'),instructions=$('#instructions'),progress=$('#progress'),scanGuide=$('#scanGuide'),productChip=$('#productChip'),chipName=$('#chipName'),chipMeta=$('#chipMeta'),dock=$('#dock'),savedCount=$('#savedCount'),sheet=$('#sheet'),sheetTitle=$('#sheetTitle'),sheetEyebrow=$('#sheetEyebrow'),sheetBody=$('#sheetBody'),completion=$('#completion');
+function persist(){localStorage.setItem('sebc_ar_found',JSON.stringify([...state.found]));localStorage.setItem('sebc_ar_saved',JSON.stringify([...state.saved]));localStorage.setItem('sebc_ar_events',JSON.stringify(state.events.slice(-120)));updateCounts()}
+function track(type,productId=null,meta={}){state.events.push({type,productId,meta,time:new Date().toISOString()});persist()}
+function updateCounts(){progress.textContent=`${state.found.size} / ${PRODUCTS.length} PRODUCTS`;savedCount.textContent=state.saved.size;if(state.current){const b=dock.querySelector('[data-action="save"]');const yes=state.saved.has(state.current.id);b.classList.toggle('saved',yes);b.innerHTML=yes?'<b>✓</b>SAVED':'<b>★</b>SAVE'}}
+function setStatus(text,found=false){statusText.textContent=text;status.classList.toggle('found',found)}function productById(id){return PRODUCTS.find(p=>p.id===id)}function currentProduct(){return state.current}
+function recognize(index,source='camera'){const p=PRODUCTS[index];if(!p)return;state.current=p;const first=!state.found.has(p.id);state.found.add(p.id);setStatus('PRODUCT RECOGNIZED ✓',true);instructions.textContent=`${p.brand} • ${p.name} — move the phone slightly and the AR callouts stay anchored to the product card.`;scanGuide.classList.add('hidden');chipName.textContent=`${p.brand} ${p.name}`;chipMeta.textContent=p.category;productChip.classList.add('show');dock.classList.add('show');track(first?'product_first_scan':'product_rescan',p.id,{source});updateCounts();if(state.found.size===PRODUCTS.length&&!state.completedShown){state.completedShown=true;localStorage.setItem('sebc_ar_completed','1');setTimeout(()=>completion.classList.add('show'),850);track('tour_completed')}}
+function lost(index){if(!state.current||state.current.markerIndex!==index)return;setStatus('MOVE BACK TO PRODUCT',false);instructions.textContent='The product left the camera view. Point back at the same card to re-anchor the AR overlay, or find another product.'}
+function closeSheet(){sheet.classList.remove('open')}function openSheet(title,eyebrow,html){sheetTitle.textContent=title;sheetEyebrow.textContent=eyebrow;sheetBody.innerHTML=html;sheet.classList.add('open')}
+function overviewHtml(p){return `<p class="hero-copy"><strong>${p.tagline}</strong><br>${p.description}</p><div class="tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div><div class="hotspot-note"><strong>TRUE AR LAYER:</strong> the numbered feature callouts you see in the camera are anchored to this physical product target while the real-world view remains visible.</div><div class="feature-grid">${p.features.map(([a,b])=>`<div class="feature"><b>${a}</b><span>${b}</span></div>`).join('')}</div><div class="actions"><button class="primary gold" data-inline="video">▶ WATCH PRODUCT VIDEO</button><button class="secondary" data-inline="specs">VIEW SPECIFICATIONS</button><button class="secondary" data-inline="save">${state.saved.has(p.id)?'✓ SAVED TO MY PRODUCTS':'★ SAVE PRODUCT'}</button><button class="primary" data-inline="lead">REQUEST INFORMATION</button></div>`}
+function specsHtml(p){return `<div class="hotspot-note">Specifications are product-specific. When you provide the real product content, these fields can be replaced without changing the recognition engine.</div><div class="specs">${p.specs.map(([a,b])=>`<div class="spec-row"><div>${a}</div><div>${b}</div></div>`).join('')}</div><div class="actions"><button class="secondary" data-inline="save">★ SAVE PRODUCT</button><button class="primary" data-inline="lead">REQUEST INFORMATION</button></div>`}
+function videoHtml(p){let src=p.video.type==='youtube'?`https://www.youtube-nocookie.com/embed/${p.video.id}?rel=0`:`https://player.vimeo.com/video/${p.video.id}?title=0&byline=0&portrait=0`;return `<div class="video-wrap"><iframe src="${src}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="${p.name} video"></iframe></div><div class="video-note">${p.video.label}. The production version can use the exhibitor's Vimeo, YouTube or self-hosted video.</div><div class="actions"><button class="secondary" data-inline="save">★ SAVE PRODUCT</button><button class="primary" data-inline="lead">REQUEST INFORMATION</button></div>`}
+function leadHtml(p){return `<div id="leadSuccess" class="success">✓ Request captured for this demo session. In production this submits the visitor + exact product interest to the exhibitor/CRM endpoint.</div><div id="leadForm"><p class="hero-copy">Request more information about <strong>${p.brand} ${p.name}</strong>.</p><div class="form-row"><label for="leadName">NAME</label><input id="leadName" autocomplete="name" placeholder="Your name"></div><div class="form-row"><label for="leadEmail">EMAIL</label><input id="leadEmail" type="email" autocomplete="email" placeholder="you@company.com"></div><div class="form-row"><label for="leadCompany">COMPANY</label><input id="leadCompany" autocomplete="organization" placeholder="Company"></div><div class="form-row"><label for="leadNote">WHAT WOULD YOU LIKE TO KNOW?</label><textarea id="leadNote" placeholder="Pricing, availability, technical details, schedule a follow-up..."></textarea></div><button id="leadSubmit" class="primary gold" style="width:100%">SEND PRODUCT REQUEST</button><div class="video-note">Prototype behavior stores the request on this device only. We can connect the production version to the exhibitor's form, CRM, email workflow or SEBC lead system.</div></div>`}
+function savedHtml(){const items=[...state.saved].map(productById).filter(Boolean);if(!items.length)return `<div class="empty"><strong>No products saved yet.</strong><br><br>Scan a product and tap <b>Save</b>.</div>`;return `${items.map(p=>`<div class="saved-card"><strong>${p.brand} ${p.name}</strong><span>${p.category}</span><div class="actions"><button class="secondary" data-open-product="${p.id}">VIEW</button><button class="danger" data-remove-product="${p.id}">REMOVE</button></div></div>`).join('')}<div class="hotspot-note"><strong>Pitch feature:</strong> in production, “My Products” can become an attendee follow-up email, downloadable recap or CRM-qualified interest list.</div>`}
+function insightsHtml(){const videos=state.events.filter(e=>e.type==='video_open').length,leads=state.events.filter(e=>e.type==='lead_submit').length,last=state.events.slice(-12).reverse();return `<div class="insight-list"><div class="metric"><b>${state.found.size}</b><span>UNIQUE PRODUCTS SCANNED</span></div><div class="metric"><b>${state.saved.size}</b><span>PRODUCTS SAVED</span></div><div class="metric"><b>${videos}</b><span>VIDEO OPENS</span></div><div class="metric"><b>${leads}</b><span>INFO REQUESTS</span></div></div><div class="section-title">RECENT DEMO EVENTS</div><div class="event-log">${last.length?last.map(e=>`<div class="event-row"><strong>${e.type.replaceAll('_',' ')}</strong>${e.productId?` • ${productById(e.productId)?.brand||e.productId}`:''}<br><span style="color:#6b7280">${new Date(e.time).toLocaleTimeString()}</span></div>`).join(''):'<div class="event-row">No events yet.</div>'}</div><div class="actions"><button id="resetDemo" class="danger">RESET DEMO DATA</button></div>`}
+function openAction(action){const p=currentProduct();if(!p&&action!=='saved'&&action!=='insights')return;if(action==='overview'){track('overview_open',p.id);openSheet(`${p.brand} ${p.name}`,'PRODUCT OVERVIEW',overviewHtml(p))}if(action==='specs'){track('specs_open',p.id);openSheet(`${p.brand} ${p.name}`,'SPECIFICATIONS',specsHtml(p))}if(action==='video'){track('video_open',p.id);openSheet(`${p.brand} ${p.name}`,'PRODUCT VIDEO',videoHtml(p))}if(action==='lead'){track('lead_open',p.id);openSheet(`${p.brand} ${p.name}`,'REQUEST INFORMATION',leadHtml(p))}if(action==='save'){if(state.saved.has(p.id))state.saved.delete(p.id);else state.saved.add(p.id);track(state.saved.has(p.id)?'product_saved':'product_unsaved',p.id);persist()}if(action==='saved'){openSheet('My Saved Products','MY SEBC PRODUCTS',savedHtml())}if(action==='insights'){openSheet('Presenter Insights','DEMO ANALYTICS',insightsHtml())}}
+function bindScene(){PRODUCTS.forEach((p,i)=>{const el=document.querySelector(`#target${i}`);el.addEventListener('targetFound',()=>recognize(i,'camera'));el.addEventListener('targetLost',()=>lost(i))})}
+document.addEventListener('DOMContentLoaded',()=>{bindScene();setTimeout(()=>{if(!state.current){setStatus('READY — FIND A PRODUCT',false);instructions.textContent='Point your camera at any of the three featured product cards.'}},1200);updateCounts()});
+dock.addEventListener('click',e=>{const b=e.target.closest('button[data-action]');if(b)openAction(b.dataset.action)});$('#savedBtn').addEventListener('click',()=>openAction('saved'));$('#insightsBtn').addEventListener('click',()=>openAction('insights'));$('#sheetClose').addEventListener('click',closeSheet);$('#completionClose').addEventListener('click',()=>completion.classList.remove('show'));$('#completionSaved').addEventListener('click',()=>{completion.classList.remove('show');openAction('saved')});$('#demoPanel').addEventListener('click',e=>{const b=e.target.closest('[data-demo-target]');if(b)recognize(Number(b.dataset.demoTarget),'presenter_simulation')});
+sheetBody.addEventListener('click',e=>{const inl=e.target.closest('[data-inline]');if(inl){closeSheet();setTimeout(()=>openAction(inl.dataset.inline),100);return}const open=e.target.closest('[data-open-product]');if(open){state.current=productById(open.dataset.openProduct);closeSheet();setTimeout(()=>openAction('overview'),100);return}const rem=e.target.closest('[data-remove-product]');if(rem){state.saved.delete(rem.dataset.removeProduct);track('product_unsaved',rem.dataset.removeProduct);persist();openSheet('My Saved Products','MY SEBC PRODUCTS',savedHtml());return}if(e.target.id==='leadSubmit'){const p=currentProduct(),email=$('#leadEmail').value.trim(),name=$('#leadName').value.trim();if(!name||!email){alert('Enter a name and email for the demo request.');return}track('lead_submit',p.id,{name,email,company:$('#leadCompany').value.trim(),note:$('#leadNote').value.trim()});$('#leadForm').style.display='none';$('#leadSuccess').classList.add('show')}if(e.target.id==='resetDemo'){if(confirm('Reset all scans, saves and demo analytics on this device?')){localStorage.removeItem('sebc_ar_found');localStorage.removeItem('sebc_ar_saved');localStorage.removeItem('sebc_ar_events');localStorage.removeItem('sebc_ar_completed');location.reload()}}});
+window.addEventListener('load',()=>{const scene=document.querySelector('a-scene');scene.addEventListener('renderstart',()=>{try{scene.renderer.setClearColor(0x000000,0);scene.renderer.setClearAlpha(0);scene.renderer.domElement.style.background='transparent'}catch(e){}})});
+</script>
+</body>
+</html>
