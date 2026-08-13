@@ -2,12 +2,11 @@ import { OfflineCompiler } from 'mind-ar/src/image-target/offline-compiler.js';
 import { writeFile, readFile } from 'fs/promises';
 import { loadImage } from 'canvas';
 
-// Office pitch demo: compile three item-recognition targets.
-// 01 FHBA recognition clock, 02 Puerto Rico mini conga, 03 CDBIA branded builder tool.
+// Option A: one master QR launches WebAR; each booth item uses a printed placard as the tracking target.
 const files = [
-  'product-ar/targets/impact-window.txt',
-  'product-ar/targets/roofing-system.txt',
-  'product-ar/targets/cdbia-builder-tool.txt'
+  'webar/placards/placard-01.svg',
+  'webar/placards/placard-02.svg',
+  'webar/placards/placard-03-min.svg'
 ];
 
 const images = [];
@@ -19,9 +18,9 @@ for (const file of files) {
 
 const compiler = new OfflineCompiler();
 await compiler.compileImageTargets(images, (percent) => {
-  process.stdout.write(`\rCompiling office item targets: ${Math.round(percent)}%`);
+  process.stdout.write(`\rCompiling SEBC product placards: ${Math.round(percent)}%`);
 });
 
 const buffer = compiler.exportData();
 await writeFile('webar/target.mind', Buffer.from(buffer));
-console.log(`\nWrote three-target webar/target.mind (${buffer.byteLength || buffer.length} bytes)`);
+console.log(`\nWrote three-placard webar/target.mind (${buffer.byteLength || buffer.length} bytes)`);
